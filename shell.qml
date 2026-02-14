@@ -473,9 +473,11 @@ ShellRoot {
                                         padding: 6
 
                                         Repeater {
-                                            model: root.packageFilterText.trim().length === 0
-                                                   ? root.managedPackages
-                                                   : root.managedPackages.filter(pkg => pkg.toLowerCase().indexOf(root.packageFilterText.trim().toLowerCase()) !== -1)
+                                            model: (
+                                                root.packageFilterText.trim().length === 0
+                                                ? root.managedPackages
+                                                : root.managedPackages.filter(pkg => pkg.toLowerCase().indexOf(root.packageFilterText.trim().toLowerCase()) !== -1)
+                                            ).slice().sort((a, b) => a.localeCompare(b))
 
                                             Rectangle {
                                                 width: packagesColumn.width - 12
