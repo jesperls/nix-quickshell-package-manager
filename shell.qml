@@ -8,6 +8,19 @@ ShellRoot {
 
     readonly property string helperScript: Quickshell.env("QPM_HELPER_SCRIPT") || (Quickshell.env("PWD") + "/assets/qpm.sh")
     readonly property string rebuildAlias: Quickshell.env("QPM_REBUILD_ALIAS") || ""
+    readonly property string bgColor: Quickshell.env("QPM_BG") || "#171c24"
+    readonly property string surfaceColor: Quickshell.env("QPM_SURFACE") || "#121720"
+    readonly property string surfaceAltColor: Quickshell.env("QPM_SURFACE_ALT") || "#0f141c"
+    readonly property string accentColor: Quickshell.env("QPM_ACCENT") || "#7aa2f7"
+    readonly property string accent2Color: Quickshell.env("QPM_ACCENT2") || "#89dceb"
+    readonly property string textColor: Quickshell.env("QPM_TEXT") || "#e6edf5"
+    readonly property string mutedColor: Quickshell.env("QPM_MUTED") || "#aeb8c6"
+    readonly property string borderColor: Quickshell.env("QPM_BORDER") || "#2f3743"
+    readonly property string shadowColor: Quickshell.env("QPM_SHADOW") || "#0b1018"
+    readonly property string scrollbarColor: Quickshell.env("QPM_SCROLLBAR") || "#4a5563"
+    readonly property string buttonColor: Quickshell.env("QPM_BUTTON") || accentColor
+    readonly property string buttonDisabledColor: Quickshell.env("QPM_BUTTON_DISABLED") || "#2c3138"
+    readonly property int rounding: parseInt(Quickshell.env("QPM_ROUNDING") || "10")
 
     property string statusText: ""
     property string configuredPath: ""
@@ -240,9 +253,9 @@ ShellRoot {
             anchors.centerIn: parent
             width: Math.min(parent.width * 0.9, 1480)
             height: Math.min(parent.height * 0.9, 920)
-            radius: 12
-            color: "#171c24"
-            border.color: "#2f3743"
+            radius: root.rounding
+            color: root.bgColor
+            border.color: root.borderColor
             border.width: 1
 
             MouseArea {
@@ -265,7 +278,7 @@ ShellRoot {
                         anchors.rightMargin: 8
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Quickshell Package Manager"
-                        color: "#e6edf5"
+                        color: root.textColor
                         font.pixelSize: 24
                         font.bold: true
                         elide: Text.ElideRight
@@ -283,6 +296,12 @@ ShellRoot {
                             width: 90
                             height: 34
                             label: "View log"
+                            radiusSize: Math.max(6, root.rounding - 2)
+                            activeColor: root.buttonColor
+                            disabledColor: root.buttonDisabledColor
+                            borderColor: root.borderColor
+                            textColor: root.textColor
+                            disabledTextColor: root.mutedColor
                             onClicked: root.openRebuildLog()
                         }
 
@@ -293,6 +312,12 @@ ShellRoot {
                             height: 34
                             label: root.rebuildInProgress ? "In progress" : "Rebuild"
                             disabled: root.rebuildInProgress
+                            radiusSize: Math.max(6, root.rounding - 2)
+                            activeColor: root.buttonColor
+                            disabledColor: root.buttonDisabledColor
+                            borderColor: root.borderColor
+                            textColor: root.textColor
+                            disabledTextColor: root.mutedColor
                             onClicked: root.runRebuild()
                         }
                     }
@@ -301,9 +326,9 @@ ShellRoot {
                 Rectangle {
                     width: parent.width
                     height: 110
-                    radius: 10
-                    color: "#121720"
-                    border.color: "#2d3541"
+                    radius: Math.max(8, root.rounding)
+                    color: root.surfaceColor
+                    border.color: root.borderColor
                     border.width: 1
 
                     Column {
@@ -313,7 +338,7 @@ ShellRoot {
 
                         Text {
                             text: "Managed packages.nix path"
-                            color: "#b8c2cf"
+                            color: root.mutedColor
                             font.pixelSize: 13
                         }
 
@@ -324,16 +349,16 @@ ShellRoot {
                             Rectangle {
                                 width: parent.width - 100
                                 height: 34
-                                radius: 8
-                                color: "#0f141c"
-                                border.color: "#28303b"
+                                radius: Math.max(6, root.rounding - 2)
+                                color: root.surfaceAltColor
+                                border.color: root.borderColor
                                 border.width: 1
 
                                 TextInput {
                                     id: packagesPathInput
                                     anchors.fill: parent
                                     anchors.margins: 8
-                                    color: "#e6edf5"
+                                    color: root.textColor
                                     text: root.configuredPath
                                     selectByMouse: true
                                     clip: true
@@ -344,6 +369,12 @@ ShellRoot {
                                 width: 92
                                 height: 34
                                 label: "Save Path"
+                                radiusSize: Math.max(6, root.rounding - 2)
+                                activeColor: root.buttonColor
+                                disabledColor: root.buttonDisabledColor
+                                borderColor: root.borderColor
+                                textColor: root.textColor
+                                disabledTextColor: root.mutedColor
                                 onClicked: root.savePath(packagesPathInput.text.trim())
                             }
                         }
@@ -355,6 +386,12 @@ ShellRoot {
                                 width: 130
                                 height: 30
                                 label: root.configuredChannel === "nixos-unstable" ? "● unstable" : "unstable"
+                                radiusSize: Math.max(6, root.rounding - 2)
+                                activeColor: root.configuredChannel === "nixos-unstable" ? root.accentColor : root.buttonColor
+                                disabledColor: root.buttonDisabledColor
+                                borderColor: root.borderColor
+                                textColor: root.textColor
+                                disabledTextColor: root.mutedColor
                                 onClicked: root.saveChannel("nixos-unstable")
                             }
 
@@ -362,6 +399,12 @@ ShellRoot {
                                 width: 130
                                 height: 30
                                 label: root.configuredChannel === "nixos-25.11" ? "● 25.11" : "25.11"
+                                radiusSize: Math.max(6, root.rounding - 2)
+                                activeColor: root.configuredChannel === "nixos-25.11" ? root.accent2Color : root.buttonColor
+                                disabledColor: root.buttonDisabledColor
+                                borderColor: root.borderColor
+                                textColor: root.textColor
+                                disabledTextColor: root.mutedColor
                                 onClicked: root.saveChannel("nixos-25.11")
                             }
                         }
@@ -378,6 +421,20 @@ ShellRoot {
                         height: parent.height
                         managedPackages: root.managedPackages
                         filterText: root.packageFilterText
+                        rounding: root.rounding
+                        surfaceColor: root.surfaceColor
+                        surfaceAltColor: root.surfaceAltColor
+                        itemColor: root.bgColor
+                        textColor: root.textColor
+                        mutedColor: root.mutedColor
+                        borderColor: root.borderColor
+                        fieldBorderColor: root.borderColor
+                        itemBorderColor: root.borderColor
+                        scrollbarColor: root.scrollbarColor
+                        buttonColor: root.buttonColor
+                        buttonDisabledColor: root.buttonDisabledColor
+                        buttonTextColor: root.textColor
+                        buttonDisabledTextColor: root.mutedColor
                         onFilterTextChanged: root.packageFilterText = filterText
                         onRemoveRequested: pkg => root.removePackage(pkg)
                     }
@@ -387,6 +444,20 @@ ShellRoot {
                         height: parent.height
                         searchResults: root.searchResults
                         managedPackages: root.managedPackages
+                        rounding: root.rounding
+                        surfaceColor: root.surfaceColor
+                        surfaceAltColor: root.surfaceAltColor
+                        itemColor: root.bgColor
+                        textColor: root.textColor
+                        mutedColor: root.mutedColor
+                        borderColor: root.borderColor
+                        fieldBorderColor: root.borderColor
+                        itemBorderColor: root.borderColor
+                        scrollbarColor: root.scrollbarColor
+                        buttonColor: root.buttonColor
+                        buttonDisabledColor: root.buttonDisabledColor
+                        buttonTextColor: root.textColor
+                        buttonDisabledTextColor: root.mutedColor
                         onSearchRequested: query => root.searchPackages(query)
                         onAddRequested: pkg => root.addPackage(pkg)
                     }
@@ -395,7 +466,7 @@ ShellRoot {
                 Text {
                     width: parent.width
                     text: root.statusText
-                    color: "#aeb8c6"
+                    color: root.mutedColor
                     font.pixelSize: 13
                     elide: Text.ElideRight
                 }

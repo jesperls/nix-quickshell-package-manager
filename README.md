@@ -31,6 +31,20 @@ programs.quickshellPackageManager = {
   packagesFile = "~/nixos-config/modules/home-manager/packages.nix";
   channel = "nixos-unstable"; # or "nixos-25.11"
   rebuildAlias = "nh os switch ~/nixos-config"; # optional
+  theme = {
+    accent = "#7aa2f7";
+    accent2 = "#89dceb";
+    background = "#171c24";
+    surface = "#121720";
+    surfaceAlt = "#0f141c";
+    text = "#e6edf5";
+    muted = "#aeb8c6";
+    border = "#2f3743";
+    scrollbar = "#4a5563";
+    button = "#7aa2f7";
+    buttonDisabled = "#2c3138";
+    rounding = 10;
+  };
 };
 ```
 
@@ -47,3 +61,22 @@ This installs `qs-pkg-manager`.
 - Search currently queries the same backend used by `search.nixos.org`.
 - If your configured path does not exist, it is created with a minimal package-file template.
 - If `rebuildAlias` is set, the UI shows a **Rebuild** button that runs that command.
+
+## Theming
+
+All colors are configurable via `programs.quickshellPackageManager.theme`. Any unset color (`null`) uses the built-in default from `shell.qml`.
+
+| Option           | Env variable           | Default     |
+|------------------|------------------------|-------------|
+| `accent`         | `QPM_ACCENT`           | `#7aa2f7`   |
+| `accent2`        | `QPM_ACCENT2`          | `#89dceb`   |
+| `background`     | `QPM_BG`               | `#171c24`   |
+| `surface`        | `QPM_SURFACE`          | `#121720`   |
+| `surfaceAlt`     | `QPM_SURFACE_ALT`      | `#0f141c`   |
+| `text`           | `QPM_TEXT`             | `#e6edf5`   |
+| `muted`          | `QPM_MUTED`            | `#aeb8c6`   |
+| `border`         | `QPM_BORDER`           | `#2f3743`   |
+| `scrollbar`      | `QPM_SCROLLBAR`        | `#4a5563`   |
+| `button`         | `QPM_BUTTON`           | `QPM_ACCENT`|
+| `buttonDisabled` | `QPM_BUTTON_DISABLED`  | `#2c3138`   |
+| `rounding`       | `QPM_ROUNDING`         | `10`        |

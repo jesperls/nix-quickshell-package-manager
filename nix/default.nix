@@ -10,6 +10,7 @@
   coreutils,
   xdg-utils,
   python3,
+  themeEnv ? { },
   initialPackagesFile ? null,
   channel ? "nixos-unstable",
   rebuildAlias ? null,
@@ -43,6 +44,7 @@ stdenvNoCC.mkDerivation {
         if rebuildAlias == null
         then ""
         else ''--set-default QPM_REBUILD_ALIAS "${rebuildAlias}"'';
+      themeFlags = lib.concatStringsSep " " (lib.mapAttrsToList (name: value: ''--set ${name} "${value}"'') themeEnv);
     in
     ''
       runHook preInstall
@@ -59,6 +61,7 @@ stdenvNoCC.mkDerivation {
         --set-default QPM_CHANNEL "${channel}" \
         ${initialPathFlag} \
         ${rebuildAliasFlag} \
+        ${themeFlags} \
         --set QPM_HELPER_SCRIPT "$out/share/quickshell-package-manager/qpm.sh" \
         --add-flags "-p $out/share/quickshell-package-manager"
 
