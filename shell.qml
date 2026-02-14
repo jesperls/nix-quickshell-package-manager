@@ -12,6 +12,7 @@ ShellRoot {
     property string statusText: ""
     property string configuredPath: ""
     property string configuredChannel: "nixos-unstable"
+    property string packageFilterText: ""
     property var managedPackages: []
     property var searchResults: []
 
@@ -432,44 +433,20 @@ ShellRoot {
                                 font.bold: true
                             }
 
-                            Row {
+                            Rectangle {
                                 width: parent.width
-                                spacing: 8
+                                height: 32
+                                radius: 8
+                                color: "#0f141c"
+                                border.color: "#28303b"
+                                border.width: 1
 
-                                Rectangle {
-                                    width: parent.width - 90
-                                    height: 32
-                                    radius: 8
-                                    color: "#0f141c"
-                                    border.color: "#28303b"
-                                    border.width: 1
-
-                                    TextInput {
-                                        id: manualAddInput
-                                        anchors.fill: parent
-                                        anchors.margins: 8
-                                        color: "#e6edf5"
-                                        onAccepted: {
-                                            let pkg = text.trim();
-                                            if (pkg.length > 0) {
-                                                root.addPackage(pkg);
-                                                text = "";
-                                            }
-                                        }
-                                    }
-                                }
-
-                                ActionButton {
-                                    width: 82
-                                    height: 32
-                                    label: "Add"
-                                    onClicked: {
-                                        let pkg = manualAddInput.text.trim();
-                                        if (pkg.length > 0) {
-                                            root.addPackage(pkg);
-                                            manualAddInput.text = "";
-                                        }
-                                    }
+                                TextInput {
+                                    id: packageFilterInput
+                                    anchors.fill: parent
+                                    anchors.margins: 8
+                                    color: "#e6edf5"
+                                    onTextChanged: root.packageFilterText = text
                                 }
                             }
 
@@ -496,7 +473,9 @@ ShellRoot {
                                         padding: 6
 
                                         Repeater {
-                                            model: root.managedPackages
+                                            model: root.packageFilterText.trim().length === 0
+                                                   ? root.managedPackages
+                                                   : root.managedPackages.filter(pkg => pkg.toLowerCase().indexOf(root.packageFilterText.trim().toLowerCase()) !== -1)
 
                                             Rectangle {
                                                 width: packagesColumn.width - 12
@@ -530,6 +509,17 @@ ShellRoot {
                                             }
                                         }
                                     }
+                                }
+
+                                Rectangle {
+                                    width: 6
+                                    radius: 3
+                                    color: "#4a5563"
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 2
+                                    y: 2 + (parent.height - 4 - height) * packagesFlick.visibleArea.yPosition
+                                    height: Math.max(24, (parent.height - 4) * packagesFlick.visibleArea.heightRatio)
+                                    visible: packagesFlick.contentHeight > packagesFlick.height + 1
                                 }
                             }
                         }
@@ -670,6 +660,17 @@ ShellRoot {
                                             }
                                         }
                                     }
+                                }
+
+                                Rectangle {
+                                    width: 6
+                                    radius: 3
+                                    color: "#4a5563"
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 2
+                                    y: 2 + (parent.height - 4 - height) * resultsFlick.visibleArea.yPosition
+                                    height: Math.max(24, (parent.height - 4) * resultsFlick.visibleArea.heightRatio)
+                                    visible: resultsFlick.contentHeight > resultsFlick.height + 1
                                 }
                             }
                         }
