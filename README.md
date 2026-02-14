@@ -1,5 +1,9 @@
 # nix-quickshell-package-manager
 
+## Demo
+
+https://github.com/user-attachments/assets/817ddad8-b799-4622-8f47-8b27a54eed4a
+
 A Quickshell app + flake that acts as a GUI wrapper around a single managed `packages.nix` file.
 
 - Stores your chosen `packages.nix` path in `~/.config/quickshell-package-manager/config.json`
@@ -16,8 +20,11 @@ nix run .
 ## Add to your flake inputs
 
 ```nix
-quickshell-package-manager.url = "path:./nix-quickshell-package-manager";
-```
+  quickshell-package-manager = {
+    url = "github:jesperls/nix-quickshell-package-manager";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+  ```
 
 Then import the Home Manager module:
 
