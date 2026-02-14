@@ -1,7 +1,7 @@
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Io
 import QtQuick
+import "components"
 
 ShellRoot {
     id: root
@@ -14,7 +14,7 @@ ShellRoot {
     property string configuredChannel: "nixos-unstable"
     property string packageFilterText: ""
     property bool rebuildInProgress: false
-    property string rebuildStatus: "idle"
+    property bool rebuildAvailable: root.rebuildAlias.trim().length > 0
     property var managedPackages: []
     property var searchResults: []
 
@@ -42,6 +42,7 @@ ShellRoot {
 
         configuredPath = payload.config && payload.config.packagesFile ? payload.config.packagesFile : "";
         configuredChannel = payload.config && payload.config.channel ? payload.config.channel : "nixos-unstable";
+        rebuildAvailable = payload.rebuildEnabled === true || root.rebuildAlias.trim().length > 0;
         managedPackages = payload.packages || [];
         statusText = "Ready";
     }
@@ -112,12 +113,23 @@ ShellRoot {
             let payload = parseJsonOrEmpty(output, {});
             if (payload.error) {
                 rebuildInProgress = false;
-                rebuildStatus = "failed";
                 statusText = payload.error;
                 return;
             }
 
             refreshRebuildStatus();
+        });
+    }
+
+    function openRebuildLog() {
+        runCommand(openRebuildLogProcess, ["open-rebuild-log"], output => {
+            let payload = parseJsonOrEmpty(output, {});
+            if (payload.error) {
+                statusText = payload.error;
+                return;
+            }
+
+            statusText = "Opened rebuild log";
         });
     }
 
@@ -128,191 +140,67 @@ ShellRoot {
                 return;
             }
 
-            rebuildStatus = payload.status || "idle";
-            rebuildInProgress = rebuildStatus === "running";
+            let status = payload.status || "idle";
+            rebuildInProgress = status === "running";
 
             if (rebuildInProgress) {
                 statusText = "Rebuild in progress";
                 return;
             }
 
-            if (rebuildStatus === "success" || rebuildStatus === "failed") {
-                statusText = payload.message || (rebuildStatus === "success" ? "Rebuild completed" : "Rebuild failed");
+            if (status === "success" || status === "failed") {
+                statusText = payload.message || (status === "success" ? "Rebuild completed" : "Rebuild failed");
             }
         });
     }
 
-    Process {
+    CommandRunner {
         id: stateProcess
-        property string output: ""
-        property var onDone: null
-        stdout: SplitParser {
-            onRead: data => { stateProcess.output += data; }
-        }
-        onRunningChanged: {
-            if (!running && onDone) {
-                const callback = onDone;
-                onDone = null;
-                callback(output);
-            }
-        }
     }
 
-    Process {
+    CommandRunner {
         id: setPathProcess
-        property string output: ""
-        property var onDone: null
-        stdout: SplitParser {
-            onRead: data => { setPathProcess.output += data; }
-        }
-        onRunningChanged: {
-            if (!running && onDone) {
-                const callback = onDone;
-                onDone = null;
-                callback(output);
-            }
-        }
     }
 
-    Process {
+    CommandRunner {
         id: setChannelProcess
-        property string output: ""
-        property var onDone: null
-        stdout: SplitParser {
-            onRead: data => { setChannelProcess.output += data; }
-        }
-        onRunningChanged: {
-            if (!running && onDone) {
-                const callback = onDone;
-                onDone = null;
-                callback(output);
-            }
-        }
     }
 
-    Process {
+    CommandRunner {
         id: searchProcess
-        property string output: ""
-        property var onDone: null
-        stdout: SplitParser {
-            onRead: data => { searchProcess.output += data; }
-        }
-        onRunningChanged: {
-            if (!running && onDone) {
-                const callback = onDone;
-                onDone = null;
-                callback(output);
-            }
-        }
     }
 
-    Process {
+    CommandRunner {
         id: addProcess
-        property string output: ""
-        property var onDone: null
-        stdout: SplitParser {
-            onRead: data => { addProcess.output += data; }
-        }
-        onRunningChanged: {
-            if (!running && onDone) {
-                const callback = onDone;
-                onDone = null;
-                callback(output);
-            }
-        }
     }
 
-    Process {
+    CommandRunner {
         id: removeProcess
-        property string output: ""
-        property var onDone: null
-        stdout: SplitParser {
-            onRead: data => { removeProcess.output += data; }
-        }
-        onRunningChanged: {
-            if (!running && onDone) {
-                const callback = onDone;
-                onDone = null;
-                callback(output);
-            }
-        }
     }
 
-    Process {
+    CommandRunner {
         id: rebuildProcess
-        property string output: ""
-        property var onDone: null
-        stdout: SplitParser {
-            onRead: data => { rebuildProcess.output += data; }
-        }
-        onRunningChanged: {
-            if (!running && onDone) {
-                const callback = onDone;
-                onDone = null;
-                callback(output);
-            }
-        }
     }
 
-    Process {
+    CommandRunner {
         id: rebuildStatusProcess
-        property string output: ""
-        property var onDone: null
-        stdout: SplitParser {
-            onRead: data => { rebuildStatusProcess.output += data; }
-        }
-        onRunningChanged: {
-            if (!running && onDone) {
-                const callback = onDone;
-                onDone = null;
-                callback(output);
-            }
-        }
     }
 
-    Timer {
-        id: searchDebounceTimer
-        interval: 450
-        repeat: false
-        onTriggered: root.searchPackages(searchInput.text)
+    CommandRunner {
+        id: openRebuildLogProcess
     }
 
     Timer {
         id: rebuildStatusPollTimer
         interval: 1500
         repeat: true
-        running: root.rebuildAlias.trim().length > 0
+        running: root.rebuildAvailable
         onTriggered: root.refreshRebuildStatus()
     }
 
     Component.onCompleted: {
         loadState();
         refreshRebuildStatus();
-    }
-
-    component ActionButton: Rectangle {
-        id: actionBtn
-        property alias label: labelText.text
-        property bool disabled: false
-        signal clicked
-
-        radius: 8
-        color: disabled ? "#2c3138" : "#333b45"
-        border.width: 1
-        border.color: "#4a5563"
-
-        Text {
-            id: labelText
-            anchors.centerIn: parent
-            color: actionBtn.disabled ? "#858d98" : "#e7ecf3"
-            font.pixelSize: 13
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            enabled: !actionBtn.disabled
-            onClicked: actionBtn.clicked()
-        }
     }
 
     PanelWindow {
@@ -367,12 +255,15 @@ ShellRoot {
                 anchors.margins: 16
                 spacing: 12
 
-                Row {
+                Item {
                     width: parent.width
-                    spacing: 8
+                    height: 34
 
                     Text {
-                        width: parent.width - (rebuildButton.visible ? rebuildButton.width + 8 : 0)
+                        anchors.left: parent.left
+                        anchors.right: headerActionRow.left
+                        anchors.rightMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
                         text: "Quickshell Package Manager"
                         color: "#e6edf5"
                         font.pixelSize: 24
@@ -380,14 +271,30 @@ ShellRoot {
                         elide: Text.ElideRight
                     }
 
-                    ActionButton {
-                        id: rebuildButton
-                        visible: root.rebuildAlias.trim().length > 0
-                        width: 100
-                        height: 34
-                        label: root.rebuildInProgress ? "In progress" : "Rebuild"
-                        disabled: root.rebuildInProgress
-                        onClicked: root.runRebuild()
+                    Row {
+                        id: headerActionRow
+                        spacing: 8
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        ActionButton {
+                            id: viewLogButton
+                            visible: root.rebuildAvailable
+                            width: 90
+                            height: 34
+                            label: "View log"
+                            onClicked: root.openRebuildLog()
+                        }
+
+                        ActionButton {
+                            id: rebuildButton
+                            visible: root.rebuildAvailable
+                            width: 100
+                            height: 34
+                            label: root.rebuildInProgress ? "In progress" : "Rebuild"
+                            disabled: root.rebuildInProgress
+                            onClicked: root.runRebuild()
+                        }
                     }
                 }
 
@@ -466,269 +373,22 @@ ShellRoot {
                     height: parent.height - 220
                     spacing: 12
 
-                    Rectangle {
+                    CurrentPackagesPane {
                         width: (parent.width - 12) / 2
                         height: parent.height
-                        radius: 10
-                        color: "#121720"
-                        border.color: "#2d3541"
-                        border.width: 1
-
-                        Column {
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            spacing: 8
-
-                            Text {
-                                text: "Current packages"
-                                color: "#e3e9f2"
-                                font.pixelSize: 18
-                                font.bold: true
-                            }
-
-                            Rectangle {
-                                width: parent.width
-                                height: 32
-                                radius: 8
-                                color: "#0f141c"
-                                border.color: "#28303b"
-                                border.width: 1
-
-                                TextInput {
-                                    id: packageFilterInput
-                                    anchors.fill: parent
-                                    anchors.margins: 8
-                                    color: "#e6edf5"
-                                    onTextChanged: root.packageFilterText = text
-                                }
-                            }
-
-                            Rectangle {
-                                width: parent.width
-                                height: parent.height - 90
-                                radius: 8
-                                color: "#0f141c"
-                                border.color: "#28303b"
-                                border.width: 1
-                                clip: true
-
-                                Flickable {
-                                    id: packagesFlick
-                                    anchors.fill: parent
-                                    contentWidth: width
-                                    contentHeight: packagesColumn.height
-                                    clip: true
-
-                                    Column {
-                                        id: packagesColumn
-                                        width: packagesFlick.width
-                                        spacing: 4
-                                        padding: 6
-
-                                        Repeater {
-                                            model: (
-                                                root.packageFilterText.trim().length === 0
-                                                ? root.managedPackages
-                                                : root.managedPackages.filter(pkg => pkg.toLowerCase().indexOf(root.packageFilterText.trim().toLowerCase()) !== -1)
-                                            ).slice().sort((a, b) => a.localeCompare(b))
-
-                                            Rectangle {
-                                                width: packagesColumn.width - 12
-                                                height: 34
-                                                radius: 6
-                                                color: "#1a2130"
-                                                border.color: "#303b4b"
-                                                border.width: 1
-
-                                                Row {
-                                                    anchors.fill: parent
-                                                    anchors.margins: 6
-                                                    spacing: 6
-
-                                                    Text {
-                                                        width: parent.width - 78
-                                                        text: modelData
-                                                        color: "#e3e9f2"
-                                                        elide: Text.ElideRight
-                                                        verticalAlignment: Text.AlignVCenter
-                                                        font.pixelSize: 13
-                                                    }
-
-                                                    ActionButton {
-                                                        width: 64
-                                                        height: 22
-                                                        label: "Remove"
-                                                        onClicked: root.removePackage(modelData)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Rectangle {
-                                    width: 6
-                                    radius: 3
-                                    color: "#4a5563"
-                                    anchors.right: parent.right
-                                    anchors.rightMargin: 2
-                                    y: 2 + (parent.height - 4 - height) * packagesFlick.visibleArea.yPosition
-                                    height: Math.max(24, (parent.height - 4) * packagesFlick.visibleArea.heightRatio)
-                                    visible: packagesFlick.contentHeight > packagesFlick.height + 1
-                                }
-                            }
-                        }
+                        managedPackages: root.managedPackages
+                        filterText: root.packageFilterText
+                        onFilterTextChanged: root.packageFilterText = filterText
+                        onRemoveRequested: pkg => root.removePackage(pkg)
                     }
 
-                    Rectangle {
+                    SearchPane {
                         width: (parent.width - 12) / 2
                         height: parent.height
-                        radius: 10
-                        color: "#121720"
-                        border.color: "#2d3541"
-                        border.width: 1
-
-                        Column {
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            spacing: 8
-
-                            Text {
-                                text: "Search NixOS packages"
-                                color: "#e3e9f2"
-                                font.pixelSize: 18
-                                font.bold: true
-                            }
-
-                            Row {
-                                width: parent.width
-                                spacing: 8
-
-                                Rectangle {
-                                    width: parent.width - 90
-                                    height: 32
-                                    radius: 8
-                                    color: "#0f141c"
-                                    border.color: "#28303b"
-                                    border.width: 1
-
-                                    TextInput {
-                                        id: searchInput
-                                        anchors.fill: parent
-                                        anchors.margins: 8
-                                        color: "#e6edf5"
-                                        onTextChanged: searchDebounceTimer.restart()
-                                        onActiveFocusChanged: {
-                                            if (!activeFocus) {
-                                                searchDebounceTimer.stop();
-                                                root.searchPackages(text);
-                                            }
-                                        }
-                                        onAccepted: root.searchPackages(text)
-                                    }
-                                }
-
-                                ActionButton {
-                                    width: 82
-                                    height: 32
-                                    label: "Search"
-                                    onClicked: root.searchPackages(searchInput.text)
-                                }
-                            }
-
-                            Rectangle {
-                                width: parent.width
-                                height: parent.height - 90
-                                radius: 8
-                                color: "#0f141c"
-                                border.color: "#28303b"
-                                border.width: 1
-                                clip: true
-
-                                Flickable {
-                                    id: resultsFlick
-                                    anchors.fill: parent
-                                    contentWidth: width
-                                    contentHeight: resultsColumn.height
-                                    clip: true
-
-                                    Column {
-                                        id: resultsColumn
-                                        width: resultsFlick.width
-                                        spacing: 6
-                                        padding: 6
-
-                                        Repeater {
-                                            model: root.searchResults
-
-                                            Rectangle {
-                                                property bool alreadyAdded: root.managedPackages.indexOf(modelData.identifier) !== -1
-                                                width: resultsColumn.width - 12
-                                                height: 66
-                                                radius: 6
-                                                color: "#1a2130"
-                                                border.color: "#303b4b"
-                                                border.width: 1
-
-                                                Column {
-                                                    anchors.fill: parent
-                                                    anchors.margins: 6
-                                                    spacing: 4
-
-                                                    Row {
-                                                        width: parent.width
-                                                        spacing: 6
-
-                                                        Text {
-                                                            width: parent.width - 68
-                                                            text: modelData.identifier + (modelData.version ? ("  " + modelData.version) : "")
-                                                            color: "#e3e9f2"
-                                                            font.pixelSize: 13
-                                                            font.bold: true
-                                                            elide: Text.ElideRight
-                                                        }
-
-                                                        ActionButton {
-                                                            property bool alreadyAdded: root.managedPackages.indexOf(modelData.identifier) !== -1
-                                                            width: 56
-                                                            height: 22
-                                                            label: alreadyAdded ? "Added" : "Add"
-                                                            disabled: alreadyAdded
-                                                            onClicked: {
-                                                                if (!alreadyAdded) {
-                                                                    root.addPackage(modelData.identifier);
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-
-                                                    Text {
-                                                        width: parent.width
-                                                        text: modelData.description || "No description"
-                                                        color: "#b2bcc9"
-                                                        font.pixelSize: 12
-                                                        wrapMode: Text.WordWrap
-                                                        maximumLineCount: 2
-                                                        elide: Text.ElideRight
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Rectangle {
-                                    width: 6
-                                    radius: 3
-                                    color: "#4a5563"
-                                    anchors.right: parent.right
-                                    anchors.rightMargin: 2
-                                    y: 2 + (parent.height - 4 - height) * resultsFlick.visibleArea.yPosition
-                                    height: Math.max(24, (parent.height - 4) * resultsFlick.visibleArea.heightRatio)
-                                    visible: resultsFlick.contentHeight > resultsFlick.height + 1
-                                }
-                            }
-                        }
+                        searchResults: root.searchResults
+                        managedPackages: root.managedPackages
+                        onSearchRequested: query => root.searchPackages(query)
+                        onAddRequested: pkg => root.addPackage(pkg)
                     }
                 }
 

@@ -8,6 +8,7 @@
   jq,
   gnused,
   coreutils,
+  xdg-utils,
   python3,
   initialPackagesFile ? null,
   channel ? "nixos-unstable",
@@ -31,6 +32,7 @@ stdenvNoCC.mkDerivation {
         jq
         gnused
         coreutils
+        xdg-utils
         python3
       ];
       initialPathFlag =
@@ -48,6 +50,7 @@ stdenvNoCC.mkDerivation {
       mkdir -p $out/share/quickshell-package-manager $out/bin
 
       cp shell.qml $out/share/quickshell-package-manager/
+      cp -r components $out/share/quickshell-package-manager/
       install -Dm755 assets/qpm.sh $out/share/quickshell-package-manager/qpm.sh
       install -Dm755 assets/packages_file.py $out/share/quickshell-package-manager/packages_file.py
 

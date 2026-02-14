@@ -12,14 +12,24 @@ PY_HELPER="$HELPER_DIR/packages_file.py"
 mkdir -p "$CONFIG_ROOT"
 mkdir -p "$STATE_ROOT"
 
+write_config_json() {
+  local packages_file="$1"
+  local channel="$2"
+  local rebuild_alias="$3"
+
+  jq -n \
+    --arg packagesFile "$packages_file" \
+    --arg channel "$channel" \
+    --arg rebuildAlias "$rebuild_alias" \
+    '{packagesFile: $packagesFile, channel: $channel, rebuildAlias: $rebuildAlias}' > "$CONFIG_FILE"
+}
+
 write_default_config() {
   local initial_path="${QPM_INITIAL_PACKAGES_FILE:-}"
   local channel="${QPM_CHANNEL:-nixos-unstable}"
+  local rebuild_alias="${QPM_REBUILD_ALIAS:-}"
 
-  jq -n \
-    --arg packagesFile "$initial_path" \
-    --arg channel "$channel" \
-    '{packagesFile: $packagesFile, channel: $channel}' > "$CONFIG_FILE"
+  write_config_json "$initial_path" "$channel" "$rebuild_alias"
 }
 
 ensure_config() {
@@ -36,11 +46,47 @@ read_config() {
 save_config() {
   local packages_file="$1"
   local channel="$2"
+  local rebuild_alias
+  rebuild_alias="$(read_config | jq -r '.rebuildAlias // ""')"
 
-  jq -n \
-    --arg packagesFile "$packages_file" \
-    --arg channel "$channel" \
-    '{packagesFile: $packagesFile, channel: $channel}' > "$CONFIG_FILE"
+  write_config_json "$packages_file" "$channel" "$rebuild_alias"
+}
+
+get_config_rebuild_alias() {
+  read_config | jq -r '.rebuildAlias // ""'
+}
+
+effective_rebuild_alias() {
+  local env_alias config_alias
+  env_alias="${QPM_REBUILD_ALIAS:-}"
+  if [[ -n "${env_alias//[[:space:]]/}" ]]; then
+    printf '%s' "$env_alias"
+    return
+  fi
+
+  config_alias="$(get_config_rebuild_alias)"
+  printf '%s' "$config_alias"
+}
+
+sync_rebuild_alias_from_env() {
+  local env_alias
+  env_alias="${QPM_REBUILD_ALIAS:-}"
+  if [[ -z "${env_alias//[[:space:]]/}" ]]; then
+    return
+  fi
+
+  local cfg current_alias
+  cfg="$(read_config)"
+  current_alias="$(jq -r '.rebuildAlias // ""' <<< "$cfg")"
+
+  if [[ "$current_alias" == "$env_alias" ]]; then
+    return
+  fi
+
+  write_config_json \
+    "$(jq -r '.packagesFile // ""' <<< "$cfg")" \
+    "$(jq -r '.channel // "nixos-unstable"' <<< "$cfg")" \
+    "$env_alias"
 }
 
 get_packages_file() {
@@ -62,9 +108,17 @@ require_packages_file() {
 }
 
 emit_state() {
-  local cfg file packages
+  local cfg file packages rebuild_alias rebuild_enabled
+  sync_rebuild_alias_from_env
   cfg="$(read_config)"
   file="$(jq -r '.packagesFile // ""' <<< "$cfg")"
+  rebuild_alias="$(effective_rebuild_alias)"
+
+  if [[ -n "${rebuild_alias//[[:space:]]/}" ]]; then
+    rebuild_enabled="true"
+  else
+    rebuild_enabled="false"
+  fi
 
   if [[ -n "$file" ]]; then
     packages="$(python3 "$PY_HELPER" read "$file")"
@@ -72,7 +126,11 @@ emit_state() {
     packages='[]'
   fi
 
-  jq -n --argjson config "$cfg" --argjson packages "$packages" '{config: $config, packages: $packages}'
+  jq -n \
+    --argjson config "$cfg" \
+    --argjson packages "$packages" \
+    --argjson rebuildEnabled "$rebuild_enabled" \
+    '{config: $config, packages: $packages, rebuildEnabled: $rebuildEnabled}'
 }
 
 write_rebuild_state() {
@@ -239,9 +297,11 @@ search_packages() {
 }
 
 run_rebuild() {
-  local rebuild_alias="${QPM_REBUILD_ALIAS:-}"
+  local rebuild_alias
+  sync_rebuild_alias_from_env
+  rebuild_alias="$(effective_rebuild_alias)"
 
-  if [[ -z "$rebuild_alias" ]]; then
+  if [[ -z "${rebuild_alias//[[:space:]]/}" ]]; then
     write_rebuild_state "failed" "No rebuild alias configured" null null
     jq -n '{error: "No rebuild alias configured"}'
     return 1
@@ -278,6 +338,8 @@ else
   message="${last_line:-Rebuild command failed}"
   jq -n --arg message "$message" --arg updatedAt "$updated_at" --argjson code "$exit_code" '{status:"failed", message:$message, pid:null, code:$code, updatedAt:$updatedAt}' > "$QPM_REBUILD_STATE_FILE"
 fi
+
+rm -f -- "$0"
 EOF
   chmod +x "$runner"
 
@@ -291,6 +353,19 @@ EOF
 
   write_rebuild_state "running" "Rebuild in progress" "$rebuild_pid" null
   jq -n '{ok: true, status: "running", message: "Rebuild in progress"}'
+}
+
+open_rebuild_log() {
+  mkdir -p "$STATE_ROOT"
+  touch "$REBUILD_LOG_FILE"
+
+  if xdg-open "$REBUILD_LOG_FILE" >/dev/null 2>&1; then
+    jq -n --arg path "$REBUILD_LOG_FILE" '{ok: true, path: $path}'
+    return 0
+  fi
+
+  jq -n --arg error "Failed to open rebuild log" --arg path "$REBUILD_LOG_FILE" '{error: $error, path: $path}'
+  return 1
 }
 
 cmd="${1:-}"
@@ -339,6 +414,9 @@ case "$cmd" in
     ;;
   rebuild-status)
     query_rebuild_status
+    ;;
+  open-rebuild-log)
+    open_rebuild_log
     ;;
   *)
     jq -n --arg error "unknown command: $cmd" '{error: $error}'
