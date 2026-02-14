@@ -228,6 +228,13 @@ ShellRoot {
         }
     }
 
+    Timer {
+        id: searchDebounceTimer
+        interval: 450
+        repeat: false
+        onTriggered: root.searchPackages(searchInput.text)
+    }
+
     Component.onCompleted: loadState()
 
     component ActionButton: Rectangle {
@@ -505,7 +512,7 @@ ShellRoot {
                                                     spacing: 6
 
                                                     Text {
-                                                        width: parent.width - 66
+                                                        width: parent.width - 78
                                                         text: modelData
                                                         color: "#e3e9f2"
                                                         elide: Text.ElideRight
@@ -514,7 +521,7 @@ ShellRoot {
                                                     }
 
                                                     ActionButton {
-                                                        width: 52
+                                                        width: 64
                                                         height: 22
                                                         label: "Remove"
                                                         onClicked: root.removePackage(modelData)
@@ -565,6 +572,13 @@ ShellRoot {
                                         anchors.fill: parent
                                         anchors.margins: 8
                                         color: "#e6edf5"
+                                        onTextChanged: searchDebounceTimer.restart()
+                                        onActiveFocusChanged: {
+                                            if (!activeFocus) {
+                                                searchDebounceTimer.stop();
+                                                root.searchPackages(text);
+                                            }
+                                        }
                                         onAccepted: root.searchPackages(text)
                                     }
                                 }
