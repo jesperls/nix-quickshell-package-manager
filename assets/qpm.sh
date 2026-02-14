@@ -3,10 +3,14 @@ set -euo pipefail
 
 CONFIG_ROOT="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell-package-manager"
 CONFIG_FILE="$CONFIG_ROOT/config.json"
+STATE_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell-package-manager"
+REBUILD_STATE_FILE="$STATE_ROOT/rebuild-state.json"
+REBUILD_LOG_FILE="$STATE_ROOT/rebuild.log"
 HELPER_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PY_HELPER="$HELPER_DIR/packages_file.py"
 
 mkdir -p "$CONFIG_ROOT"
+mkdir -p "$STATE_ROOT"
 
 write_default_config() {
   local initial_path="${QPM_INITIAL_PACKAGES_FILE:-}"
@@ -69,6 +73,58 @@ emit_state() {
   fi
 
   jq -n --argjson config "$cfg" --argjson packages "$packages" '{config: $config, packages: $packages}'
+}
+
+write_rebuild_state() {
+  local status="$1"
+  local message="$2"
+  local pid="${3:-null}"
+  local code="${4:-null}"
+  local now
+  now="$(date -Iseconds)"
+
+  jq -n \
+    --arg status "$status" \
+    --arg message "$message" \
+    --arg updatedAt "$now" \
+    --argjson pid "$pid" \
+    --argjson code "$code" \
+    '{status: $status, message: $message, pid: $pid, code: $code, updatedAt: $updatedAt}' > "$REBUILD_STATE_FILE"
+}
+
+ensure_rebuild_state() {
+  if [[ ! -f "$REBUILD_STATE_FILE" ]]; then
+    write_rebuild_state "idle" "Ready" null null
+  fi
+}
+
+read_rebuild_state() {
+  ensure_rebuild_state
+  cat "$REBUILD_STATE_FILE"
+}
+
+query_rebuild_status() {
+  local state status pid
+  state="$(read_rebuild_state)"
+  status="$(jq -r '.status // "idle"' <<< "$state")"
+  pid="$(jq -r '.pid // empty' <<< "$state")"
+
+  if [[ "$status" == "running" && -n "$pid" ]]; then
+    if kill -0 "$pid" 2>/dev/null; then
+      printf '%s\n' "$state"
+      return
+    fi
+
+    local last_line
+    last_line="$(tail -n 1 "$REBUILD_LOG_FILE" 2>/dev/null || true)"
+    if [[ -n "$last_line" ]]; then
+      write_rebuild_state "failed" "$last_line" null 1
+    else
+      write_rebuild_state "failed" "Rebuild process ended unexpectedly" null 1
+    fi
+  fi
+
+  read_rebuild_state
 }
 
 extract_api_flags() {
@@ -186,18 +242,55 @@ run_rebuild() {
   local rebuild_alias="${QPM_REBUILD_ALIAS:-}"
 
   if [[ -z "$rebuild_alias" ]]; then
+    write_rebuild_state "failed" "No rebuild alias configured" null null
     jq -n '{error: "No rebuild alias configured"}'
     return 1
   fi
 
-  local output
-  if output="$(bash -lc "$rebuild_alias" 2>&1)"; then
-    jq -n --arg output "$output" '{ok: true, output: $output}'
+  local current_state current_status current_pid
+  current_state="$(query_rebuild_status)"
+  current_status="$(jq -r '.status // "idle"' <<< "$current_state")"
+  current_pid="$(jq -r '.pid // empty' <<< "$current_state")"
+
+  if [[ "$current_status" == "running" && -n "$current_pid" ]]; then
+    jq -n --arg message "Rebuild already in progress" '{ok: true, alreadyRunning: true, message: $message}'
     return 0
   fi
 
-  jq -n --arg error "Rebuild command failed" --arg output "$output" '{error: $error, output: $output}'
-  return 1
+  local runner
+  runner="$(mktemp "$STATE_ROOT/rebuild-runner.XXXXXX.sh")"
+  cat > "$runner" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+set +e
+bash -lc "$QPM_REBUILD_ALIAS" > "$QPM_REBUILD_LOG_FILE" 2>&1
+exit_code=$?
+set -e
+
+last_line="$(tail -n 1 "$QPM_REBUILD_LOG_FILE" 2>/dev/null || true)"
+updated_at="$(date -Iseconds)"
+
+if [[ "$exit_code" -eq 0 ]]; then
+  message="${last_line:-Rebuild completed}"
+  jq -n --arg message "$message" --arg updatedAt "$updated_at" '{status:"success", message:$message, pid:null, code:0, updatedAt:$updatedAt}' > "$QPM_REBUILD_STATE_FILE"
+else
+  message="${last_line:-Rebuild command failed}"
+  jq -n --arg message "$message" --arg updatedAt "$updated_at" --argjson code "$exit_code" '{status:"failed", message:$message, pid:null, code:$code, updatedAt:$updatedAt}' > "$QPM_REBUILD_STATE_FILE"
+fi
+EOF
+  chmod +x "$runner"
+
+  : > "$REBUILD_LOG_FILE"
+  nohup env \
+    QPM_REBUILD_ALIAS="$rebuild_alias" \
+    QPM_REBUILD_LOG_FILE="$REBUILD_LOG_FILE" \
+    QPM_REBUILD_STATE_FILE="$REBUILD_STATE_FILE" \
+    bash "$runner" >/dev/null 2>&1 &
+  local rebuild_pid=$!
+
+  write_rebuild_state "running" "Rebuild in progress" "$rebuild_pid" null
+  jq -n '{ok: true, status: "running", message: "Rebuild in progress"}'
 }
 
 cmd="${1:-}"
@@ -243,6 +336,9 @@ case "$cmd" in
     ;;
   rebuild)
     run_rebuild
+    ;;
+  rebuild-status)
+    query_rebuild_status
     ;;
   *)
     jq -n --arg error "unknown command: $cmd" '{error: $error}'

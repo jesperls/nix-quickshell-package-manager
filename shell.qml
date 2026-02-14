@@ -13,6 +13,8 @@ ShellRoot {
     property string configuredPath: ""
     property string configuredChannel: "nixos-unstable"
     property string packageFilterText: ""
+    property bool rebuildInProgress: false
+    property string rebuildStatus: "idle"
     property var managedPackages: []
     property var searchResults: []
 
@@ -109,11 +111,34 @@ ShellRoot {
         runCommand(rebuildProcess, ["rebuild"], output => {
             let payload = parseJsonOrEmpty(output, {});
             if (payload.error) {
+                rebuildInProgress = false;
+                rebuildStatus = "failed";
                 statusText = payload.error;
                 return;
             }
 
-            statusText = "Rebuild completed";
+            refreshRebuildStatus();
+        });
+    }
+
+    function refreshRebuildStatus() {
+        runCommand(rebuildStatusProcess, ["rebuild-status"], output => {
+            let payload = parseJsonOrEmpty(output, {});
+            if (payload.error) {
+                return;
+            }
+
+            rebuildStatus = payload.status || "idle";
+            rebuildInProgress = rebuildStatus === "running";
+
+            if (rebuildInProgress) {
+                statusText = "Rebuild in progress";
+                return;
+            }
+
+            if (rebuildStatus === "success" || rebuildStatus === "failed") {
+                statusText = payload.message || (rebuildStatus === "success" ? "Rebuild completed" : "Rebuild failed");
+            }
         });
     }
 
@@ -229,6 +254,22 @@ ShellRoot {
         }
     }
 
+    Process {
+        id: rebuildStatusProcess
+        property string output: ""
+        property var onDone: null
+        stdout: SplitParser {
+            onRead: data => { rebuildStatusProcess.output += data; }
+        }
+        onRunningChanged: {
+            if (!running && onDone) {
+                const callback = onDone;
+                onDone = null;
+                callback(output);
+            }
+        }
+    }
+
     Timer {
         id: searchDebounceTimer
         interval: 450
@@ -236,7 +277,18 @@ ShellRoot {
         onTriggered: root.searchPackages(searchInput.text)
     }
 
-    Component.onCompleted: loadState()
+    Timer {
+        id: rebuildStatusPollTimer
+        interval: 1500
+        repeat: true
+        running: root.rebuildAlias.trim().length > 0
+        onTriggered: root.refreshRebuildStatus()
+    }
+
+    Component.onCompleted: {
+        loadState();
+        refreshRebuildStatus();
+    }
 
     component ActionButton: Rectangle {
         id: actionBtn
@@ -333,7 +385,8 @@ ShellRoot {
                         visible: root.rebuildAlias.trim().length > 0
                         width: 100
                         height: 34
-                        label: "Rebuild"
+                        label: root.rebuildInProgress ? "In progress" : "Rebuild"
+                        disabled: root.rebuildInProgress
                         onClicked: root.runRebuild()
                     }
                 }
