@@ -43,7 +43,7 @@ ShellRoot {
     function runCommand(proc, args, done) {
         proc.output = "";
         proc.onDone = done;
-        proc.command = [root.helperScript].concat(args);
+        proc.command = ["bash", root.helperScript].concat(args);
         proc.running = true;
     }
 
@@ -458,6 +458,7 @@ ShellRoot {
                         buttonDisabledColor: root.buttonDisabledColor
                         buttonTextColor: root.textColor
                         buttonDisabledTextColor: root.mutedColor
+                        linkColor: root.accentColor
                         onSearchRequested: query => root.searchPackages(query)
                         onAddRequested: pkg => root.addPackage(pkg)
                     }

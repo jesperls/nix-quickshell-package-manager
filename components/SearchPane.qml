@@ -20,6 +20,7 @@ Rectangle {
     property string buttonDisabledColor: "#2c3138"
     property string buttonTextColor: "#e7ecf3"
     property string buttonDisabledTextColor: "#858d98"
+    property string linkColor: textColor
     signal searchRequested(string query)
     signal addRequested(string packageId)
 
@@ -116,7 +117,9 @@ Rectangle {
 
                         Rectangle {
                             width: resultsColumn.width - 12
-                            height: 66
+                            property string homepageUrl: (modelData.homepage || "").toString()
+                            property string sourceUrl: (modelData.source || "").toString()
+                            height: (homepageUrl.length > 0 || sourceUrl.length > 0) ? 88 : 66
                             radius: Math.max(5, rounding - 4)
                             color: itemColor
                             border.color: itemBorderColor
@@ -168,6 +171,39 @@ Rectangle {
                                     wrapMode: Text.WordWrap
                                     maximumLineCount: 2
                                     elide: Text.ElideRight
+                                }
+
+                                Row {
+                                    spacing: 12
+                                    visible: homepageUrl.length > 0 || sourceUrl.length > 0
+
+                                    Text {
+                                        visible: homepageUrl.length > 0
+                                        text: "Homepage"
+                                        color: linkColor
+                                        font.pixelSize: 12
+                                        font.underline: true
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: Qt.openUrlExternally(homepageUrl)
+                                        }
+                                    }
+
+                                    Text {
+                                        visible: sourceUrl.length > 0
+                                        text: "Source"
+                                        color: linkColor
+                                        font.pixelSize: 12
+                                        font.underline: true
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: Qt.openUrlExternally(sourceUrl)
+                                        }
+                                    }
                                 }
                             }
                         }

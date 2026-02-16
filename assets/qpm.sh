@@ -283,7 +283,7 @@ search_packages() {
       return 1
     }
 
-  jq '[
+  jq --arg channel "$channel" '[
     .hits.hits[]?
     | ._source
     | {
@@ -291,7 +291,33 @@ search_packages() {
         attrSet: .package_attr_set,
         identifier: (if .package_attr_set == "No package set" then .package_attr_name else (.package_attr_set + "." + .package_attr_name) end),
         version: (.package_pversion // ""),
-        description: (.package_description // "")
+        description: (.package_description // ""),
+        homepage: (
+          if (.package_homepage | type) == "array" then
+            ((.package_homepage | map(select(type == "string" and length > 0)) | .[0]) // "")
+          elif (.package_homepage | type) == "string" then
+            (.package_homepage // "")
+          else
+            ""
+          end
+        ),
+        source: (
+          if ((.package_position // "") | length) > 0 then
+            "https://github.com/NixOS/nixpkgs/blob/"
+            + $channel
+            + "/"
+            + ((.package_position | split(":"))[0])
+            + (
+              if ((.package_position | split(":")) | length) > 1 then
+                "#L" + ((.package_position | split(":"))[1])
+              else
+                ""
+              end
+            )
+          else
+            ""
+          end
+        )
       }
   ] | unique_by(.identifier)' <<< "$result"
 }
