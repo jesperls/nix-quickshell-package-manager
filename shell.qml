@@ -216,21 +216,15 @@ ShellRoot {
         refreshRebuildStatus();
     }
 
-    PanelWindow {
-        anchors {
-            top: true
-            bottom: true
-            left: true
-            right: true
-        }
-        exclusionMode: ExclusionMode.Ignore
-        color: "transparent"
-        aboveWindows: true
-        focusable: true
+    FloatingWindow {
+        id: mainWindow
 
-        WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.namespace: "qs-package-manager"
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+        title: "Quickshell Package Manager"
+        color: "transparent"
+        implicitWidth: Math.min((screen ? screen.width : 1640) * 0.9, 1480)
+        implicitHeight: Math.min((screen ? screen.height : 1020) * 0.9, 920)
+        minimumSize.width: 960
+        minimumSize.height: 620
 
         Shortcut {
             sequence: "Escape"
@@ -238,21 +232,8 @@ ShellRoot {
             onActivated: Qt.quit()
         }
 
-        MouseArea {
-            anchors.fill: parent
-            onClicked: Qt.quit()
-        }
-
-        Keys.onPressed: event => {
-            if (event.key === Qt.Key_Escape) {
-                Qt.quit();
-            }
-        }
-
         Rectangle {
-            anchors.centerIn: parent
-            width: Math.min(parent.width * 0.9, 1480)
-            height: Math.min(parent.height * 0.9, 920)
+            anchors.fill: parent
             radius: root.rounding
             color: root.bgColor
             border.color: root.borderColor
