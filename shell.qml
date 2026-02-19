@@ -25,7 +25,6 @@ ShellRoot {
     property string statusText: ""
     property string configuredPath: ""
     property string configuredChannel: "nixos-unstable"
-    property string packageFilterText: ""
     property bool rebuildInProgress: false
     property bool rebuildAvailable: root.rebuildAlias.trim().length > 0
     property var managedPackages: []
@@ -61,25 +60,25 @@ ShellRoot {
     }
 
     function loadState() {
-        runCommand(stateProcess, ["state"], output => {
+        runCommand(cmdProcess, ["state"], output => {
             applyStatePayload(parseJsonOrEmpty(output, { config: {}, packages: [] }));
         });
     }
 
     function savePath(path) {
-        runCommand(setPathProcess, ["set-path", path], output => {
+        runCommand(cmdProcess, ["set-path", path], output => {
             applyStatePayload(parseJsonOrEmpty(output, { config: {}, packages: [] }));
         });
     }
 
     function saveChannel(channel) {
-        runCommand(setChannelProcess, ["set-channel", channel], output => {
+        runCommand(cmdProcess, ["set-channel", channel], output => {
             applyStatePayload(parseJsonOrEmpty(output, { config: {}, packages: [] }));
         });
     }
 
     function addPackage(pkg) {
-        runCommand(addProcess, ["add", pkg], output => {
+        runCommand(cmdProcess, ["add", pkg], output => {
             let payload = parseJsonOrEmpty(output, []);
             if (payload.error) {
                 statusText = payload.error;
@@ -91,7 +90,7 @@ ShellRoot {
     }
 
     function removePackage(pkg) {
-        runCommand(removeProcess, ["remove", pkg], output => {
+        runCommand(cmdProcess, ["remove", pkg], output => {
             let payload = parseJsonOrEmpty(output, []);
             if (payload.error) {
                 statusText = payload.error;
@@ -109,7 +108,7 @@ ShellRoot {
             return;
         }
 
-        runCommand(searchProcess, ["search", query.trim(), "40"], output => {
+        runCommand(cmdProcess, ["search", query.trim(), "40"], output => {
             let payload = parseJsonOrEmpty(output, []);
             if (payload.error) {
                 statusText = payload.error;
@@ -122,7 +121,7 @@ ShellRoot {
     }
 
     function runRebuild() {
-        runCommand(rebuildProcess, ["rebuild"], output => {
+        runCommand(cmdProcess, ["rebuild"], output => {
             let payload = parseJsonOrEmpty(output, {});
             if (payload.error) {
                 rebuildInProgress = false;
@@ -168,31 +167,7 @@ ShellRoot {
     }
 
     CommandRunner {
-        id: stateProcess
-    }
-
-    CommandRunner {
-        id: setPathProcess
-    }
-
-    CommandRunner {
-        id: setChannelProcess
-    }
-
-    CommandRunner {
-        id: searchProcess
-    }
-
-    CommandRunner {
-        id: addProcess
-    }
-
-    CommandRunner {
-        id: removeProcess
-    }
-
-    CommandRunner {
-        id: rebuildProcess
+        id: cmdProcess
     }
 
     CommandRunner {
@@ -207,7 +182,7 @@ ShellRoot {
         id: rebuildStatusPollTimer
         interval: 1500
         repeat: true
-        running: root.rebuildAvailable
+        running: root.rebuildInProgress
         onTriggered: root.refreshRebuildStatus()
     }
 
@@ -401,7 +376,6 @@ ShellRoot {
                         width: (parent.width - 12) / 2
                         height: parent.height
                         managedPackages: root.managedPackages
-                        filterText: root.packageFilterText
                         rounding: root.rounding
                         surfaceColor: root.surfaceColor
                         surfaceAltColor: root.surfaceAltColor
@@ -416,7 +390,6 @@ ShellRoot {
                         buttonDisabledColor: root.buttonDisabledColor
                         buttonTextColor: root.textColor
                         buttonDisabledTextColor: root.mutedColor
-                        onFilterTextChanged: root.packageFilterText = filterText
                         onRemoveRequested: pkg => root.removePackage(pkg)
                     }
 
