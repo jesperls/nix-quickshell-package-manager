@@ -4,22 +4,22 @@ import "./"
 Rectangle {
     id: root
 
-    property var searchResults: []
-    property var managedPackages: []
-    property int rounding: 10
-    property string surfaceColor: "#121720"
-    property string surfaceAltColor: "#0f141c"
-    property string itemColor: "#1a2130"
-    property string textColor: "#e3e9f2"
-    property string mutedColor: "#b2bcc9"
-    property string borderColor: "#2d3541"
-    property string fieldBorderColor: "#28303b"
-    property string itemBorderColor: "#303b4b"
-    property string scrollbarColor: "#4a5563"
-    property string buttonColor: "#333b45"
-    property string buttonDisabledColor: "#2c3138"
-    property string buttonTextColor: "#e7ecf3"
-    property string buttonDisabledTextColor: "#858d98"
+    required property var searchResults
+    required property var managedPackages
+    required property int rounding
+    required property string surfaceColor
+    required property string surfaceAltColor
+    required property string itemColor
+    required property string textColor
+    required property string mutedColor
+    required property string borderColor
+    required property string fieldBorderColor
+    required property string itemBorderColor
+    required property string scrollbarColor
+    required property string buttonColor
+    required property string buttonDisabledColor
+    required property string buttonTextColor
+    required property string buttonDisabledTextColor
     property string linkColor: textColor
     signal searchRequested(string query)
     signal addRequested(string packageId)

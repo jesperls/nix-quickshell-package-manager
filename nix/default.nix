@@ -37,14 +37,15 @@ stdenvNoCC.mkDerivation {
         python3
       ];
       initialPathFlag =
-        if initialPackagesFile == null
-        then ""
-        else ''--set-default QPM_INITIAL_PACKAGES_FILE "${initialPackagesFile}"'';
+        if initialPackagesFile == null then
+          ""
+        else
+          ''--set-default QPM_INITIAL_PACKAGES_FILE "${initialPackagesFile}"'';
       rebuildAliasFlag =
-        if rebuildAlias == null
-        then ""
-        else ''--set-default QPM_REBUILD_ALIAS "${rebuildAlias}"'';
-      themeFlags = lib.concatStringsSep " " (lib.mapAttrsToList (name: value: ''--set ${name} "${value}"'') themeEnv);
+        if rebuildAlias == null then "" else ''--set-default QPM_REBUILD_ALIAS "${rebuildAlias}"'';
+      themeFlags = lib.concatStringsSep " " (
+        lib.mapAttrsToList (name: value: ''--set ${name} "${value}"'') themeEnv
+      );
     in
     ''
       runHook preInstall

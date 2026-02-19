@@ -10,24 +10,28 @@ let
   cfg = config.programs.quickshellPackageManager;
 
   expandedPackagesFile =
-    if lib.hasPrefix "~" cfg.packagesFile
-    then "${config.home.homeDirectory}${lib.removePrefix "~" cfg.packagesFile}"
-    else cfg.packagesFile;
+    if lib.hasPrefix "~" cfg.packagesFile then
+      "${config.home.homeDirectory}${lib.removePrefix "~" cfg.packagesFile}"
+    else
+      cfg.packagesFile;
+
+  baseColors = if cfg.baseColors != null then cfg.baseColors else cfg.theme;
+  baseRounding = if cfg.baseColors != null then cfg.baseRounding else cfg.theme.rounding;
 
   themeEnv = lib.filterAttrs (_: v: v != null) {
-    QPM_ACCENT = cfg.theme.accent;
-    QPM_ACCENT2 = cfg.theme.accent2;
-    QPM_BG = cfg.theme.background;
-    QPM_SURFACE = cfg.theme.surface;
-    QPM_SURFACE_ALT = cfg.theme.surfaceAlt;
-    QPM_TEXT = cfg.theme.text;
-    QPM_MUTED = cfg.theme.muted;
-    QPM_BORDER = cfg.theme.border;
-    QPM_SHADOW = cfg.theme.shadow;
-    QPM_SCROLLBAR = cfg.theme.scrollbar;
-    QPM_BUTTON = cfg.theme.button;
-    QPM_BUTTON_DISABLED = cfg.theme.buttonDisabled;
-    QPM_ROUNDING = toString cfg.theme.rounding;
+    QPM_ACCENT = baseColors.accent or null;
+    QPM_ACCENT2 = baseColors.accent2 or null;
+    QPM_BG = baseColors.background or null;
+    QPM_SURFACE = baseColors.surface or null;
+    QPM_SURFACE_ALT = baseColors.surfaceAlt or null;
+    QPM_TEXT = baseColors.text or null;
+    QPM_MUTED = baseColors.muted or null;
+    QPM_BORDER = baseColors.border or null;
+    QPM_SHADOW = baseColors.shadow or null;
+    QPM_SCROLLBAR = baseColors.scrollbar or cfg.theme.scrollbar or null;
+    QPM_BUTTON = baseColors.button or cfg.theme.button or null;
+    QPM_BUTTON_DISABLED = baseColors.buttonDisabled or cfg.theme.buttonDisabled or null;
+    QPM_ROUNDING = toString baseRounding;
   };
 
   managerPkg = cfg.package.override {
@@ -67,6 +71,18 @@ in
       default = null;
       example = "nh os switch ~/nixos-config";
       description = "Optional rebuild command shown in the UI as a Rebuild button.";
+    };
+
+    baseColors = mkOption {
+      type = types.nullOr (types.attrsOf types.str);
+      default = null;
+      description = "Base theme colors attrset (accent, accent2, background, surface, surfaceAlt, text, muted, border, shadow). Shorthand alternative to setting theme.* individually.";
+    };
+
+    baseRounding = mkOption {
+      type = types.int;
+      default = 10;
+      description = "Corner rounding when using baseColors. Ignored if baseColors is null.";
     };
 
     theme = {
